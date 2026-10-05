@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SpayLater Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ee4d2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SpayLater">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1b1f2a;--mu:#6b7280;--ac:#ee4d2d;--ok:#16a34a;--bd:#e5e7eb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111318;--card:#1b1e26;--tx:#eef0f4;--mu:#9aa1ad;--bd:#2c303a}}
+:root[data-theme="dark"]{--bg:#111318;--card:#1b1e26;--tx:#eef0f4;--mu:#9aa1ad;--bd:#2c303a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,sans-serif}
+.w{max-width:560px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:4px 0 10px}h2{font-size:15px;margin:18px 0 8px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:8px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.nav b{font-size:17px}
+button{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:8px 12px}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.sum div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 4px}
+.sum small{display:block;color:var(--mu)}.sum b{font-size:16px}
+.row{display:flex;align-items:center;gap:10px}.row .i{flex:1;min-width:0}
+.row .n{font-weight:600}.row .s{color:var(--mu);font-size:13px}
+.amt{font-weight:600}
+.chk{width:26px;height:26px;accent-color:var(--ok)}
+.done .n,.done .amt{text-decoration:line-through;color:var(--mu)}
+.x{border:0;background:none;color:var(--mu);padding:4px}
+input,select{font:inherit;width:100%;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);margin-bottom:8px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pp{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bd)}.pp:last-child{border:0}
+.ok{color:var(--ok)}.bad{color:var(--ac)}
+details summary{cursor:pointer;font-weight:600}
+</style></head><body><div class="w">
+<h1>💳 SpayLater Tracker</h1>
+<div class="card nav"><button id="pv">‹</button><b id="mt"></b><button id="nx">›</button></div>
+<div class="sum" id="sum"></div>
+<div id="list"></div>
+<h2>By person</h2><div class="card" id="ppl"></div>
+<button class="p" id="cp" style="width:100%">📋 Copy summary (for group chat)</button>
+<h2>➕ Add a debt</h2>
+<div class="card">
+<input id="nm" placeholder="Name (e.g. Ana)">
+<input id="nt" placeholder="Item / note (e.g. Phone case)">
+<div class="g2"><input id="am" type="number" inputmode="decimal" placeholder="Monthly amount ₱">
+<input id="dy" type="number" inputmode="numeric" min="1" max="31" value="5" placeholder="Due day (1–31)"></div>
+<div class="g2"><input id="st" type="month"><input id="mo" type="number" inputmode="numeric" placeholder="How many months? (0 = ongoing)"></div>
+<button class="p" id="add" style="width:100%">Add</button></div>
+<h2>💾 Backup</h2>
+<div class="card"><div class="s" style="color:var(--mu);margin-bottom:8px">Data is saved only in this browser. Back up to move it to another phone.</div>
+<button id="bk" style="width:100%;margin-bottom:8px">Copy backup</button>
+<textarea id="rs" placeholder="Paste your backup here, then tap Restore" style="width:100%;height:70px;font:inherit;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);margin-bottom:8px"></textarea>
+<button id="rb" style="width:100%">Restore (replaces current data)</button></div>
+</div>
+<script>
+const K='spaylater_v1';let D={e:[],p:{}};
+try{D=JSON.parse(localStorage.getItem(K))||D}catch(e){}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(D))}catch(e){}};
+const $=i=>document.getElementById(i);
+const ym=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+let cur=ym(new Date());$('st').value=cur;
+const idx=s=>{const[a,b]=s.split('-').map(Number);return a*12+b-1};
+const fmt=n=>'₱'+Number(n).toLocaleString('en-PH',{maximumFractionDigits:2});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const days=a=>[...new Set([5,15,...a.map(e=>e.dy)])].sort((x,y)=>x-y);
+function active(){return D.e.filter(e=>{const d=idx(cur)-idx(e.st);return d>=0&&(e.mo==0||d<e.mo)})}
+const paid=e=>!!D.p[e.id+'|'+cur];
+function render(){
+ const[y,m]=cur.split('-');$('mt').textContent=MN[m-1]+' '+y;
+ const a=active(),tot=a.reduce((s,e)=>s+e.am,0),pd=a.filter(paid).reduce((s,e)=>s+e.am,0);
+ $('sum').innerHTML=`<div><small>Total</small><b>${fmt(tot)}</b></div><div><small>Paid</small><b class="ok">${fmt(pd)}</b></div><div><small>Remaining</small><b class="bad">${fmt(tot-pd)}</b></div>`;
+ let h='';
+ days(a).forEach(d=>{
+  const g=a.filter(e=>e.dy==d);const t=g.reduce((s,e)=>s+e.am,0),p=g.filter(paid).reduce((s,e)=>s+e.am,0);
+  h+=`<h2>Due ${d} — ${fmt(t)} <span style="color:var(--mu);font-weight:400">(remaining ${fmt(t-p)})</span></h2>`;
+  if(!g.length)h+='<div class="card s" style="color:var(--mu)">None yet.</div>';
+  g.forEach(e=>{const left=e.mo>0?` · ${e.mo-(idx(cur)-idx(e.st))} months left`:'';
+   h+=`<div class="card row ${paid(e)?'done':''}"><input class="chk" type="checkbox" ${paid(e)?'checked':''} onchange="tg(${e.id})"><div class="i"><div class="n">${esc(e.nm)}</div><div class="s">${esc(e.nt||'—')}${left}</div></div><div class="amt">${fmt(e.am)}</div><button class="x" onclick="ed_(${e.id})">✎</button><button class="x" style="${pend===e.id?'color:var(--ac);font-weight:600':''}" onclick="rm(${e.id})">${pend===e.id?'Delete?':'✕'}</button></div>`});
+ });
+ $('list').innerHTML=h;
+ const pp={};
+ D.e.forEach(e=>{const o=pp[e.nm]=pp[e.nm]||{t:0,pd:0,open:0,mt:0,mp:0};
+  const n=Object.keys(D.p).filter(k=>k.startsWith(e.id+'|')).length;
+  if(e.mo>0){o.t+=e.mo*e.am;o.pd+=Math.min(n,e.mo)*e.am}else{o.open++;o.pd+=n*e.am}});
+ a.forEach(e=>{const o=pp[e.nm];o.mt+=e.am;if(paid(e))o.mp+=e.am});
+ const ks=Object.keys(pp).sort((x,y)=>x.localeCompare(y));
+ $('ppl').innerHTML=ks.length?ks.map(k=>{const o=pp[k],r=o.mt-o.mp;
+  return`<div class="pp" style="display:block"><b>${esc(k)}</b>
+  <div class="s" style="display:flex;justify-content:space-between"><span>This month</span><span>${fmt(o.mt)} · ${r?`<span class="bad">remaining ${fmt(r)}</span>`:'<span class="ok">✓ paid</span>'}</span></div>
+  <div class="s" style="display:flex;justify-content:space-between"><span>Total owed</span><span>${fmt(o.t)}</span></div>
+  <div class="s" style="display:flex;justify-content:space-between"><span>Paid so far</span><span class="ok">${fmt(o.pd)}</span></div>
+  <div style="display:flex;justify-content:space-between;font-weight:600"><span>Balance left</span><span class="bad">${fmt(Math.max(o.t-o.pd,0))}</span></div>
+  ${o.open?`<div class="s">+ ${o.open} ongoing item(s) (not included in totals)</div>`:''}</div>`}).join(''):'<span class="s" style="color:var(--mu)">Nothing yet.</span>';
+}
+function tg(id){const k=id+'|'+cur;if(D.p[k])delete D.p[k];else D.p[k]=1;save();render()}
+let pend=null;
+function rm(id){if(pend!==id){pend=id;render();setTimeout(()=>{if(pend===id){pend=null;render()}},3000);return}
+ D.e=D.e.filter(e=>e.id!==id);pend=null;save();render()}
+let ed=null;
+function ed_(id){const e=D.e.find(x=>x.id===id);if(!e)return;ed=id;
+ $('nm').value=e.nm;$('nt').value=e.nt;$('am').value=e.am;$('dy').value=e.dy;$('st').value=e.st;$('mo').value=e.mo||'';
+ $('add').textContent='💾 Save changes';$('nm').scrollIntoView({behavior:'smooth'})}
+$('add').onclick=()=>{
+ const nm=$('nm').value.trim(),am=parseFloat($('am').value),dy=parseInt($('dy').value);
+ if(!nm||!(am>0)||!(dy>=1&&dy<=31)){$('add').textContent='⚠️ Enter a name, amount and due day (1–31)';setTimeout(()=>$('add').textContent=ed?'💾 Save changes':'Add',2000);return}
+ const v={nm,nt:$('nt').value.trim(),am,dy,st:$('st').value||cur,mo:parseInt($('mo').value)||0};
+ if(ed){const e=D.e.find(x=>x.id===ed);if(e)Object.assign(e,v);ed=null}else D.e.push({id:Date.now(),...v});
+ $('add').textContent='Add';
+ save();['nm','nt','am','mo'].forEach(i=>$(i).value='');render()};
+$('pv').onclick=()=>{const i=idx(cur)-1;cur=Math.floor(i/12)+'-'+String(i%12+1).padStart(2,'0');render()};
+$('nx').onclick=()=>{const i=idx(cur)+1;cur=Math.floor(i/12)+'-'+String(i%12+1).padStart(2,'0');render()};
+$('cp').onclick=async()=>{
+ const a=active();let t=`SpayLater — ${$('mt').textContent}\n`;
+ days(a).forEach(d=>{t+=`\nDue ${d}:\n`;a.filter(e=>e.dy==d).forEach(e=>t+=`${paid(e)?'✅':'⬜'} ${e.nm} — ${fmt(e.am)}${e.nt?' ('+e.nt+')':''}\n`)});
+ const tot=a.reduce((s,e)=>s+e.am,0),pd=a.filter(paid).reduce((s,e)=>s+e.am,0);
+ t+=`\nTotal ${fmt(tot)} | Paid ${fmt(pd)} | Remaining ${fmt(tot-pd)}`;
+ try{await navigator.clipboard.writeText(t);$('cp').textContent='✓ Copied!'}catch(e){let ta=$('ta');if(!ta){ta=document.createElement('textarea');ta.id='ta';ta.style.cssText='width:100%;height:160px;margin-top:8px';$('cp').after(ta)}ta.value=t;ta.select()}
+ setTimeout(()=>$('cp').textContent='📋 Copy summary (for group chat)',1500)};
+$('bk').onclick=async()=>{const t=JSON.stringify(D);try{await navigator.clipboard.writeText(t);$('bk').textContent='✓ Copied!'}catch(e){$('rs').value=t;$('rs').select();$('bk').textContent='Copy from the box below'}setTimeout(()=>$('bk').textContent='Copy backup',2000)};
+$('rb').onclick=()=>{try{const j=JSON.parse($('rs').value);if(!Array.isArray(j.e)||typeof j.p!=='object')throw 0;D={e:j.e,p:j.p};save();$('rs').value='';render();$('rb').textContent='✓ Restored!'}catch(e){$('rb').textContent='⚠️ Invalid backup'}setTimeout(()=>$('rb').textContent='Restore (replaces current data)',2000)};
+render();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
